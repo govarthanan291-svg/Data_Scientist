@@ -1,100 +1,64 @@
 import streamlit as st
-import pandas as pd
 import pickle
-from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score
+import numpy as np
+import os
 
-# -------------------------------------------------
-# Page Config
-# -------------------------------------------------
-st.set_page_config(page_title="Heart Disease Prediction", layout="centered")
+# ----------------------------
+# Page config
+# ----------------------------
+st.set_page_config(
+    page_title="❤️ Heart Disease Prediction",
+    page_icon="❤️",
+    layout="centered"
+)
 
 st.title("❤️ Heart Disease Prediction App")
 st.write("Logistic Regression using Framingham Heart Disease Dataset")
 
-# -------------------------------------------------
-# Load Dataset
-# -------------------------------------------------
-@st.cache_data
-def load_data():
-    df = pd.read_csv("framingham_heart_disease.csv")
-    df = df.dropna()
-    return df
-
-df = load_data()
-
-# -------------------------------------------------
-# Train Logistic Regression Model
-# -------------------------------------------------
+# ----------------------------
+# Load Model
+# ----------------------------
 @st.cache_resource
-def train_model(data):
-    X = data[['age', 'male', 'cigsPerDay', 'sysBP', 'BMI']]
-    y = data['TenYearCHD']
+def load_model():
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    model_path = os.path.join(base_dir, "heart_disease_model.pkl")
+    with open(model_path, "rb") as f:
+        model = pickle.load(f)
+    return model
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42
-    )
+model = load_model()
 
-    model = LogisticRegression(max_iter=1000)
-    model.fit(X_train, y_train)
+# ----------------------------
+# User Inputs
+# ----------------------------
+st.subheader("🧍 Patient Details")
 
-    y_pred = model.predict(X_test)
-    accuracy = accuracy_score(y_test, y_pred)
-
-    # Save model as PKL
-    with open("heart_disease_model.pkl", "wb") as f:
-        pickle.dump(model, f)
-
-    return model, accuracy
-
-model, accuracy = train_model(df)
-
-# -------------------------------------------------
-# Show Accuracy
-# -------------------------------------------------
-st.success(f"Model Accuracy: {accuracy * 100:.2f}%")
-
-# -------------------------------------------------
-# User Input Section
-# -------------------------------------------------
-st.header("🔍 Enter Patient Details")
-
-age = st.number_input("Age", min_value=1, max_value=100, value=45)
-
+age = st.number_input("Age", min_value=20, max_value=100, value=40)
 sex = st.selectbox("Sex", ["Male", "Female"])
-male = 1 if sex == "Male" else 0
+cigsPerDay = st.number_input("Cigarettes Per Day", min_value=0, max_value=70, value=0)
+totChol = st.number_input("Total Cholesterol", min_value=100, max_value=400, value=200)
+sysBP = st.number_input("Systolic BP", min_value=80, max_value=250, value=120)
+diaBP = st.number_input("Diastolic BP", min_value=50, max_value=150, value=80)
+BMI = st.number_input("BMI", min_value=10.0, max_value=50.0, value=25.0)
+heartRate = st.number_input("Heart Rate", min_value=40, max_value=200, value=70)
+glucose = st.number_input("Glucose", min_value=50, max_value=300, value=90)
 
-cigs = st.number_input("Cigarettes Per Day", min_value=0, max_value=100, value=0)
+# Convert sex to numeric
+sex = 1 if sex == "Male" else 0
 
-sysBP = st.number_input(
-    "Systolic Blood Pressure",
-    min_value=80,
-    max_value=250,
-    value=120
-)
-
-bmi = st.number_input(
-    "BMI",
-    min_value=10.0,
-    max_value=50.0,
-    value=25.0
-)
-
-# -------------------------------------------------
+# ----------------------------
 # Prediction
-# -------------------------------------------------
-if st.button("Predict Heart Disease"):
-    input_data = [[age, male, cigs, sysBP, bmi]]
+# ----------------------------
+if st.button("🔍 Predict Heart Disease Risk"):
+    input_data = np.array([[age, sex, cigsPerDay, totChol,
+                             sysBP, diaBP, BMI, heartRate, glucose]])
+
     prediction = model.predict(input_data)[0]
+    probability = model.predict_proba(input_data)[0][1]
+
+    st.subheader("🩺 Prediction Result")
 
     if prediction == 1:
-        st.error("⚠️ High Risk: Person may develop Heart Disease")
+        st.error(f"⚠️ High Risk of Heart Disease\n\nRisk Probability: {probability:.2%}")
     else:
-        st.success("✅ Low Risk: Person may not develop Heart Disease")
-
-# -------------------------------------------------
-# Footer
-# -------------------------------------------------
-st.markdown("---")
-st.caption("Developed by Gova | Logistic Regression | Streamlit")
+        st.success(f"✅ Low Risk of Heart Disease\n\nRisk Probability: {probability:.2%}")
